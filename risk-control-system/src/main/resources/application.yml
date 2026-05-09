@@ -1,0 +1,57 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: risk-control-system
+
+# 风控配置
+riskcontrol:
+  # CEP 模式配置
+  cep:
+    # 连续登录失败检测
+    login-failure:
+      count: 3 # 连续失败次数
+      window-minutes: 5 # 时间窗口（分钟）
+
+    # 异地交易检测
+    cross-city:
+      window-minutes: 10 # 时间窗口
+
+    # 大额交易检测
+    high-amount:
+      threshold: 50000 # 金额阈值
+      count: 3 # 连续次数
+      window-minutes: 30
+
+  # 窗口聚合配置
+  window:
+    tumbling-seconds: 60 # 滚动窗口大小（秒）
+    sliding-seconds: 300 # 滑动窗口大小（秒）
+    sliding-step: 60 # 滑动步长（秒）
+
+  # 风险评分配置
+  score:
+    initial: 50 # 初始分数
+    max: 100 # 最高分
+    min: 0 # 最低分
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# 日志
+logging:
+  level:
+    root: INFO
+    com.example.riskcontrol: DEBUG
