@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>日志分析系统 - Phase 21</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        min-height: 100vh;
+        color: #fff;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        text-align: center;
+        padding: 30px 0;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+      }
+
+      header h1 {
+        font-size: 2.5rem;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      header p {
+        color: #888;
+        font-size: 1.1rem;
+      }
+
+      .controls {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+
+      .btn-primary {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: transform 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .stat-label {
+        color: #888;
+        font-size: 0.9rem;
+        margin-top: 8px;
+      }
+
+      .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .chart-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 25px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .chart-card h3 {
+        margin-bottom: 20px;
+        color: #fff;
+        font-size: 1.2rem;
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .data-table th {
+        background: rgba(255, 255, 255, 0.05);
+        color: #888;
+        font-weight: 500;
+      }
+
+      .data-table tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #888;
+      }
+
+      .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+      }
+
+      .badge-success {
+        background: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+      }
+      .badge-warning {
+        background: rgba(241, 196, 15, 0.2);
+        color: #f1c40f;
+      }
+      .badge-danger {
+        background: rgba(231, 76, 60, 0.2);
+        color: #e74c3c;
+      }
+
+      @media (max-width: 768px) {
+        .charts-grid {
+          grid-template-columns: 1fr;
+        }
+        header h1 {
+          font-size: 1.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>📊 日志分析系统</h1>
+        <p>Phase 21 实战项目 - 基于 MapReduce 的 Web 日志分析</p>
+      </header>
+
+      <div class="controls">
+        <button class="btn btn-primary" onclick="generateLogs()">
+          🔄 生成模拟日志
+        </button>
+        <button class="btn btn-secondary" onclick="runAnalysis()">
+          📈 执行分析
+        </button>
+        <button class="btn btn-secondary" onclick="refreshOverview()">
+          🔍 刷新概览
+        </button>
+      </div>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-value" id="totalPV">0</div>
+          <div class="stat-label">总 PV</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalUV">0</div>
+          <div class="stat-label">总 UV</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avgRT">0ms</div>
+          <div class="stat-label">平均响应时间</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="errorRate">0%</div>
+          <div class="stat-label">错误率</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalPages">0</div>
+          <div class="stat-label">页面数</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>🔥 热门页面 Top 10</h3>
+          <canvas id="topNChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <h3>📊 PV/UV 分布</h3>
+          <canvas id="pvuvChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>📋 页面统计详情</h3>
+        <table class="data-table" id="statsTable">
+          <thead>
+            <tr>
+              <th>页面</th>
+              <th>PV</th>
+              <th>UV</th>
+              <th>平均响应时间</th>
+              <th>错误率</th>
+            </tr>
+          </thead>
+          <tbody id="statsTableBody">
+            <tr>
+              <td colspan="5" class="loading">点击"执行分析"开始分析...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      let topNChart, pvuvChart;
+
+      // 初始化图表
+      function initCharts() {
+        const ctx1 = document.getElementById("topNChart").getContext("2d");
+        topNChart = new Chart(ctx1, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "访问次数",
+                data: [],
+                backgroundColor: "rgba(102, 126, 234, 0.8)",
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { color: "rgba(255,255,255,0.1)" } },
+              y: { grid: { display: false } },
+            },
+          },
+        });
+
+        const ctx2 = document.getElementById("pvuvChart").getContext("2d");
+        pvuvChart = new Chart(ctx2, {
+          type: "doughnut",
+          data: {
+            labels: ["PV", "UV"],
+            datasets: [
+              {
+                data: [0, 0],
+                backgroundColor: [
+                  "rgba(102, 126, 234, 0.8)",
+                  "rgba(118, 75, 162, 0.8)",
+                ],
+              },
+            ],
+          },
+          options: {
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#fff" } },
+            },
+          },
+        });
+      }
+
+      // 生成日志
+      async function generateLogs() {
+        const count = prompt("请输入要生成的日志数量:", "10000");
+        if (!count) return;
+
+        try {
+          const res = await fetch(`/api/logs/generate?count=${count}`, {
+            method: "POST",
+          });
+          const data = await res.json();
+          alert(`成功生成 ${data.count} 条日志！`);
+          refreshOverview();
+        } catch (e) {
+          alert("生成失败: " + e.message);
+        }
+      }
+
+      // 刷新概览
+      async function refreshOverview() {
+        try {
+          const res = await fetch("/api/stats/overview");
+          const data = await res.json();
+
+          document.getElementById("totalPV").textContent =
+            data.totalPV?.toLocaleString() || "0";
+          document.getElementById("totalUV").textContent =
+            data.totalUV?.toLocaleString() || "0";
+          document.getElementById("avgRT").textContent =
+            (data.avgResponseTime?.toFixed(1) || "0") + "ms";
+          document.getElementById("errorRate").textContent =
+            (data.errorRate?.toFixed(2) || "0") + "%";
+          document.getElementById("totalPages").textContent =
+            data.totalPages || "0";
+
+          pvuvChart.data.datasets[0].data = [
+            data.totalPV || 0,
+            data.totalUV || 0,
+          ];
+          pvuvChart.update();
+        } catch (e) {
+          console.error("刷新概览失败", e);
+        }
+      }
+
+      // 执行分析
+      async function runAnalysis() {
+        try {
+          // TopN
+          const topnRes = await fetch("/api/stats/topn?n=10");
+          const topnData = await topnRes.json();
+
+          topNChart.data.labels = topnData.map((d) => d.page);
+          topNChart.data.datasets[0].data = topnData.map((d) => d.visits);
+          topNChart.update();
+
+          // PV/UV
+          const pvuvRes = await fetch("/api/stats/pvuv");
+          const pvuvData = await pvuvRes.json();
+
+          const tbody = document.getElementById("statsTableBody");
+          tbody.innerHTML = pvuvData
+            .slice(0, 20)
+            .map(
+              (s) => `
+                    <tr>
+                        <td>${s.pagePath}</td>
+                        <td>${s.pv?.toLocaleString()}</td>
+                        <td>${s.uv?.toLocaleString()}</td>
+                        <td>${s.avgResponseTime?.toFixed(1)}ms</td>
+                        <td><span class="badge ${
+                          s.errorRate > 5
+                            ? "badge-danger"
+                            : s.errorRate > 1
+                            ? "badge-warning"
+                            : "badge-success"
+                        }">${s.errorRate?.toFixed(2)}%</span></td>
+                    </tr>
+                `
+            )
+            .join("");
+
+          refreshOverview();
+        } catch (e) {
+          alert("分析失败: " + e.message);
+        }
+      }
+
+      // 初始化
+      initCharts();
+      refreshOverview();
+    </script>
+  </body>
+</html>
