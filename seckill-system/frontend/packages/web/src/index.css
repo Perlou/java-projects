@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  /* ===== Primary Gradient Colors (Background) ===== */
+  --color-primary-from: #667eea;
+  --color-primary-via: #764ba2;
+  --color-primary-to: #f093fb;
+  
+  /* ===== Accent Colors (CTA Buttons, Badges) ===== */
+  --color-accent-400: #f87171;
+  --color-accent-500: #ef4444;
+  --color-accent-600: #dc2626;
+  --color-accent-700: #b91c1c;
+  
+  /* ===== Success Colors ===== */
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  
+  /* ===== Warning Colors ===== */
+  --color-warning-500: #f97316;
+  --color-warning-600: #ea580c;
+}
+
+/* ===== Global Styles ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* ===== Scrollbar Customization ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ===== Selection Color ===== */
+::selection {
+  background: rgba(102, 126, 234, 0.3);
+}

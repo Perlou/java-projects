@@ -1,0 +1,323 @@
+# ==============================================
+# Phase 14: Kubernetes 部署配置
+# Seckill System 完整 K8s 资源定义
+# ==============================================
+
+---
+# ==================== Namespace ====================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: seckill
+  labels:
+    app.kubernetes.io/name: seckill-system
+
+---
+# ==================== ConfigMap ====================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seckill-config
+  namespace: seckill
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-service:3306/seckill?useSSL=false&serverTimezone=Asia/Shanghai"
+  SPRING_DATA_REDIS_HOST: "redis-service"
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_RABBITMQ_HOST: "rabbitmq-service"
+  SPRING_RABBITMQ_PORT: "5672"
+
+---
+# ==================== Secret ====================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seckill-secret
+  namespace: seckill
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_USERNAME: "seckill"
+  SPRING_DATASOURCE_PASSWORD: "seckill123"
+  SPRING_RABBITMQ_USERNAME: "admin"
+  SPRING_RABBITMQ_PASSWORD: "admin123"
+
+---
+# ==================== Application Deployment ====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seckill-app
+  namespace: seckill
+  labels:
+    app: seckill-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seckill-app
+  template:
+    metadata:
+      labels:
+        app: seckill-app
+    spec:
+      containers:
+        - name: seckill-app
+          image: seckill-system:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: seckill-config
+            - secretRef:
+                name: seckill-secret
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseG1GC"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+      restartPolicy: Always
+
+---
+# ==================== Application Service ====================
+apiVersion: v1
+kind: Service
+metadata:
+  name: seckill-service
+  namespace: seckill
+spec:
+  selector:
+    app: seckill-app
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
+
+---
+# ==================== Ingress ====================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: seckill-ingress
+  namespace: seckill
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: seckill.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: seckill-service
+                port:
+                  number: 8080
+
+---
+# ==================== HPA (自动伸缩) ====================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: seckill-hpa
+  namespace: seckill
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: seckill-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# ==================== MySQL StatefulSet ====================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: seckill
+spec:
+  serviceName: mysql-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root123"
+            - name: MYSQL_DATABASE
+              value: "seckill"
+            - name: MYSQL_USER
+              value: "seckill"
+            - name: MYSQL_PASSWORD
+              value: "seckill123"
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+# ==================== MySQL Service ====================
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: seckill
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+  clusterIP: None
+
+---
+# ==================== Redis Deployment ====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: seckill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          command: ["redis-server", "--appendonly", "yes"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+
+---
+# ==================== Redis Service ====================
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: seckill
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+
+---
+# ==================== RabbitMQ Deployment ====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: seckill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management-alpine
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "admin"
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "admin123"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# ==================== RabbitMQ Service ====================
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-service
+  namespace: seckill
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+    - name: management
+      port: 15672
