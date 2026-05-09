@@ -1,0 +1,56 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: knowledge-qa-system
+
+# 模型配置
+llm:
+  # 可选: gemini, openai, ollama
+  provider: ${LLM_PROVIDER:gemini}
+
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-1.5-flash}
+
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-4o}
+    base-url: ${OPENAI_BASE_URL:}
+
+  ollama:
+    base-url: ${OLLAMA_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:llama3}
+
+# RAG 配置
+rag:
+  # 文档切分
+  chunk-size: 500
+  chunk-overlap: 50
+
+  # 检索
+  top-k: 5
+  min-score: 0.5
+
+  # 知识库路径
+  knowledge-path: classpath:knowledge/
+
+# Swagger
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /api-docs
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.example: DEBUG
+    dev.langchain4j: INFO

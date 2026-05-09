@@ -158,4 +158,3 @@ DIM  → 维度表层   (Dimension)
 
 ---
 
-> 💡 更多数仓知识请参考 Phase 24 课件：`src/main/java/phase24/`
